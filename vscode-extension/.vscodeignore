@@ -10,3 +10,13 @@ vsc-extension-quickstart.md
 **/*.ts
 node_modules/**
 
+# Keep compiled JS and bundled assets
+!out/**/*.js
+!out/**/*.css
+!out/**/*.html
+!out/**/*.json
+!out/**/*.png
+!out/**/*.jpg
+!out/**/*.svg
+!out/**/*.wasm
+

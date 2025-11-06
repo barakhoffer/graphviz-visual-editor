@@ -18,7 +18,8 @@ import { ZoomOut as ZoomOutIcon }  from '@mui/icons-material';
 import { ZoomOutMap as ZoomOutMapIcon } from '@mui/icons-material';
 import { Settings as SettingsIcon } from '@mui/icons-material';
 import { Help as HelpIcon } from '@mui/icons-material';
-import GitHubIcon from './GitHubIcon.js'
+import GitHubIcon from './GitHubIcon.js';
+import GraphvizLogo from '../public/GraphvizLogo.png';
 
 const styles = {
   root: {
@@ -184,9 +185,9 @@ function ButtonAppBar(props) {
             color="inherit"
             className={classes.flex}
           >
-          <Icon classes={{root: classes.iconRoot}}>
-            <img className={classes.imageIcon} src="GraphvizLogo.png"  width="64" height="64"/>
-          </Icon>
+          {/* <Icon classes={{root: classes.iconRoot}}>
+            <img className={classes.imageIcon} src={GraphvizLogo} alt="Graphviz Logo" width="64" height="64"/>
+          </Icon> */}
             Graphviz Visual Editor
           </Typography>
           <IconButton
@@ -252,7 +253,7 @@ function ButtonAppBar(props) {
             size="large">
             <SettingsIcon />
           </IconButton>
-          <a
+          {/* <a
             id="github"
             className={classes.gitHubLink}
             href="https://github.com/magjac/graphviz-visual-editor"
@@ -264,7 +265,7 @@ function ButtonAppBar(props) {
                 viewBox='-2.4 -2.4 28.8 28.8'
               />
             </IconButton>
-          </a>
+          </a> */}
           <IconButton
             id="help"
             color="inherit"

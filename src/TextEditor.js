@@ -1,12 +1,12 @@
 import React from 'react';
 import { withStyles } from 'tss-react/mui';
 import ace from 'react-ace';
-const AceEditor = typeof ace == 'function' ? ace : ace.default;
 import 'ace-builds/src-noconflict/mode-dot.js';
 import 'ace-builds/src-noconflict/theme-github.js';
 import 'ace-builds/src-noconflict/ext-searchbox.js';
 import { IconButton } from '@mui/material';
 import { ErrorOutline } from '@mui/icons-material';
+const AceEditor = typeof ace == 'function' ? ace : ace.default;
 
 const styles = {
   errorButton: {

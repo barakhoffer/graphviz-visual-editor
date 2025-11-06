@@ -102,7 +102,7 @@ class Index extends React.Component {
       test: JSON.parse(localStorage.getItem('test')) || {},
       graphvizVersion: graphvizVersion,
       newGraphvizVersion: graphvizVersion !== localStorage.getItem('graphvizVersion'),
-      updatedSnackbarIsOpen: packageJSON.version !== localStorage.getItem('version'),
+      updatedSnackbarIsOpen: false, //packageJSON.version !== localStorage.getItem('version'),
     };
   }
 

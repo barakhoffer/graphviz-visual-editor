@@ -60,7 +60,7 @@ class UpdatedSnackbar extends React.Component {
           aria-describedby="client-snackbar"
           message={
             <span id="message-id">
-              The Graphviz Visual Editor has been updated to version
+              {/* The Graphviz Visual Editor has been updated to version
               {' '}
               <a
                 href={"https://github.com/magjac/graphviz-visual-editor/blob/master/CHANGELOG.md#" + changelogHeaderId}
@@ -83,8 +83,9 @@ class UpdatedSnackbar extends React.Component {
               >
                 {graphvizVersion}
               </a>
-              .
-            </span>}
+              . */}
+            </span>
+            }
           action={[
             <IconButton
               key="close"

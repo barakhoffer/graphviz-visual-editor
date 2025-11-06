@@ -133,7 +133,7 @@ export class GraphvizEditorProvider implements vscode.CustomTextEditorProvider {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' ${webview.cspSource}; img-src ${webview.cspSource} data:; font-src ${webview.cspSource}; connect-src ${webview.cspSource};">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' ${webview.cspSource} 'wasm-unsafe-eval'; img-src ${webview.cspSource} data:; font-src ${webview.cspSource}; connect-src ${webview.cspSource}; worker-src blob: ${webview.cspSource}; child-src blob: ${webview.cspSource};">
     <title>Graphviz Visual Editor</title>
     <link rel="stylesheet" type="text/css" href="${cssUri}">
     <style>
@@ -159,6 +159,10 @@ export class GraphvizEditorProvider implements vscode.CustomTextEditorProvider {
         
         // Make vscode available globally for the React app
         window.vscode = vscode;
+        
+        // Disable Graphviz workers in webview context (causes CSP issues)
+        // This must be set before @hpcc-js/wasm loads
+        window.DISABLE_WASM_WORKER = true;
         
         // Handle messages from the extension
         window.addEventListener('message', event => {

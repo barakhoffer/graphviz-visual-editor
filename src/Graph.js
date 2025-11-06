@@ -105,7 +105,17 @@ class Graph extends React.Component {
   }
 
   createGraph() {
-    this.graphviz = this.div.graphviz()
+    // Configure graphviz options for VSCode webview compatibility
+    const graphvizOptions = {};
+    
+    // Check if running in VSCode webview
+    if (window.vscode) {
+      // Use sync mode instead of workers to avoid CSP issues
+      graphvizOptions.useWorker = false;
+      graphvizOptions.useSharedWorker = false;
+    }
+    
+    this.graphviz = this.div.graphviz(graphvizOptions)
       .onerror(this.handleError.bind(this))
       .on('initEnd', () => this.renderGraph.call(this));
     this.props.registerNodeShapeClick(this.handleNodeShapeClick);

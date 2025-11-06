@@ -6,9 +6,9 @@ set -e
 
 echo "Building Graphviz Visual Editor VSCode Extension..."
 
-# Step 1: Build the React web app
-echo "Step 1: Building React web app..."
-npm run build
+# Step 1: Build the React web app for VSCode (without code splitting)
+echo "Step 1: Building React web app for VSCode (disabling code splitting)..."
+node scripts/build-vscode.js
 
 # Step 2: Create the extension directory structure
 echo "Step 2: Setting up extension directory..."

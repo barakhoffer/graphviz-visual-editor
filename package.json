@@ -18,50 +18,95 @@
     "text-editor",
     "web-application "
   ],
-  "type": "module",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/magjac/graphviz-visual-editor.git"
   },
   "dependencies": {
+    "@babel/core": "^7.16.0",
     "@emotion/react": "^11.13.0",
     "@emotion/styled": "^11.13.0",
     "@mui/codemod": "^5.15.14",
     "@mui/icons-material": "^5.16.7",
     "@mui/material": "^5.16.7",
+    "@pmmmwh/react-refresh-webpack-plugin": "^0.5.3",
+    "@svgr/webpack": "^5.5.0",
     "@vscode/vsce": "^3.6.2",
     "ace-builds": "^1.35.5",
+    "babel-jest": "^27.4.2",
+    "babel-loader": "^8.2.3",
+    "babel-plugin-named-asset-import": "^0.3.8",
+    "babel-preset-react-app": "^10.0.1",
+    "bfj": "^7.0.2",
+    "browserslist": "^4.18.1",
+    "camelcase": "^6.2.1",
+    "case-sensitive-paths-webpack-plugin": "^2.4.0",
+    "css-loader": "^6.5.1",
+    "css-minimizer-webpack-plugin": "^3.2.0",
     "d3-graphviz": "^5.6.0",
     "d3-scale-chromatic": "^3.1.0",
     "d3-selection": "^3.0.0",
     "d3-transition": "^3.0.1",
     "d3-zoom": "^3.0.0",
+    "dotenv": "^10.0.0",
+    "dotenv-expand": "^5.1.0",
+    "eslint": "^8.3.0",
+    "eslint-config-react-app": "^7.0.1",
+    "eslint-webpack-plugin": "^3.1.1",
+    "file-loader": "^6.2.0",
+    "fs-extra": "^10.0.0",
+    "html-webpack-plugin": "^5.5.0",
+    "identity-obj-proxy": "^3.0.0",
+    "jest": "^27.4.3",
+    "jest-resolve": "^27.4.2",
+    "jest-watch-typeahead": "^1.0.0",
+    "mini-css-extract-plugin": "^2.4.5",
     "moment": "^2.30.1",
+    "postcss": "^8.4.4",
+    "postcss-flexbugs-fixes": "^5.0.2",
+    "postcss-loader": "^6.2.1",
+    "postcss-normalize": "^10.0.1",
+    "postcss-preset-env": "^7.0.1",
+    "prompts": "^2.4.2",
     "prop-types": "^15.8.1",
     "qs": "^6.13.0",
     "react": "^18.3.1",
     "react-ace": "^12.0.0",
+    "react-app-polyfill": "^3.0.0",
     "react-color": "^2.19.3",
+    "react-dev-utils": "^12.0.1",
     "react-dom": "^18.3.1",
     "react-perfect-scrollbar": "^1.5.8",
-    "react-scripts": "^5.0.1",
+    "react-refresh": "^0.11.0",
+    "resolve": "^1.20.0",
+    "resolve-url-loader": "^4.0.0",
+    "sass-loader": "^12.3.0",
+    "semver": "^7.3.5",
+    "source-map-loader": "^3.0.0",
+    "style-loader": "^3.3.1",
+    "tailwindcss": "^3.0.2",
+    "terser-webpack-plugin": "^5.2.5",
     "tss-react": "^4.9.12",
-    "typeface-roboto": "^1.1.13"
+    "typeface-roboto": "^1.1.13",
+    "webpack": "^5.64.4",
+    "webpack-dev-server": "^4.6.0",
+    "webpack-manifest-plugin": "^4.0.2",
+    "workbox-webpack-plugin": "^6.4.1"
   },
   "scripts": {
-    "start": "react-scripts --max_old_space_size=4096 start",
-    "start:coverage": "react-scripts --max_old_space_size=4096 -r @cypress/instrument-cra start",
-    "build": "react-scripts --max_old_space_size=4096 build",
+    "start": "node scripts/start.js --max_old_space_size=4096",
+    "start:coverage": "node scripts/start.js --max_old_space_size=4096 -r @cypress/instrument-cra",
+    "build": "node scripts/build.js --max_old_space_size=4096",
+    "build:vscode": "node scripts/build-vscode.js --max_old_space_size=4096",
     "build:extension": "./build-vscode-extension.sh",
     "extension:compile": "cd vscode-extension && npm run compile",
     "extension:watch": "cd vscode-extension && npm run watch",
     "extension:package": "cd vscode-extension && npm run package",
-    "test": "react-scripts test --env=jsdom --verbose=false",
-    "test:coverage": "react-scripts test --env=jsdom --coverage --coverageDirectory=./coverage-jest",
+    "test": "node scripts/test.js --env=jsdom --verbose=false",
+    "test:coverage": "node scripts/test.js --env=jsdom --coverage --coverageDirectory=./coverage-jest",
     "integration-test": "cypress run --config video=${CI:-false} --browser=chrome --headless --record --key a12725d3-851c-4e67-b432-079b4fb1a875",
-    "merge-coverage": "mkdir -p coverage && cp -p coverage-jest/coverage-final.json coverage/coverage-final-jest.json && cp -p coverage-cypress/coverage-final.json coverage/coverage-final-cypress.json && nyc report --temp-dir coverage --report-dir coverage --reporter lcov --reporter clover --reporter json --reporter text",
-    "eject": "react-scripts eject"
+    "merge-coverage": "mkdir -p coverage && cp -p coverage-jest/coverage-final.json coverage/coverage-final-jest.json && cp -p coverage-cypress/coverage-final.json coverage/coverage-final-cypress.json && nyc report --temp-dir coverage --report-dir coverage --reporter lcov --reporter clover --reporter json --reporter text"
   },
   "homepage": ".",
   "devDependencies": {
@@ -92,6 +137,53 @@
     ]
   },
   "jest": {
+    "roots": [
+      "<rootDir>/src"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.{js,jsx,ts,tsx}",
+      "!src/**/*.d.ts"
+    ],
+    "setupFiles": [
+      "react-app-polyfill/jsdom"
+    ],
+    "setupFilesAfterEnv": [],
+    "testMatch": [
+      "<rootDir>/src/**/__tests__/**/*.{js,jsx,ts,tsx}",
+      "<rootDir>/src/**/*.{spec,test}.{js,jsx,ts,tsx}"
+    ],
+    "testEnvironment": "jsdom",
+    "transform": {
+      "^.+\\.(js|jsx|mjs|cjs|ts|tsx)$": "<rootDir>/config/jest/babelTransform.js",
+      "^.+\\.css$": "<rootDir>/config/jest/cssTransform.js",
+      "^(?!.*\\.(js|jsx|mjs|cjs|ts|tsx|css|json)$)": "<rootDir>/config/jest/fileTransform.js"
+    },
+    "transformIgnorePatterns": [
+      "[/\\\\]node_modules[/\\\\].+\\.(js|jsx|mjs|cjs|ts|tsx)$",
+      "^.+\\.module\\.(css|sass|scss)$"
+    ],
+    "modulePaths": [],
+    "moduleNameMapper": {
+      "^react-native$": "react-native-web",
+      "^.+\\.module\\.(css|sass|scss)$": "identity-obj-proxy"
+    },
+    "moduleFileExtensions": [
+      "web.js",
+      "js",
+      "web.ts",
+      "ts",
+      "web.tsx",
+      "tsx",
+      "json",
+      "web.jsx",
+      "jsx",
+      "node"
+    ],
+    "watchPlugins": [
+      "jest-watch-typeahead/filename",
+      "jest-watch-typeahead/testname"
+    ],
+    "resetMocks": true,
     "coveragePathIgnorePatterns": [
       "src/test-utils",
       "src/shapes.js",
@@ -100,5 +192,13 @@
   },
   "nyc": {
     "report-dir": "coverage-cypress"
+  },
+  "babel": {
+    "presets": [
+      "react-app"
+    ]
+  },
+  "eslintConfig": {
+    "extends": "react-app"
   }
 }

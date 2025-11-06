@@ -107,6 +107,34 @@ class Index extends React.Component {
   }
 
   componentDidMount() {
+    // VSCode integration
+    const vscodeAdapter = this.props.vscodeAdapter;
+    if (vscodeAdapter && vscodeAdapter.isVSCode()) {
+      // Listen for text updates from VSCode
+      vscodeAdapter.onTextUpdate((text) => {
+        if (text !== this.state.dotSrc) {
+          this.setState({
+            dotSrc: text,
+            forceNewDotSrc: true,
+          });
+        }
+      });
+
+      // Listen for config updates from VSCode
+      vscodeAdapter.onConfigUpdate((config) => {
+        this.setPersistentState({
+          engine: config.engine,
+          fitGraph: config.fitGraph,
+          transitionDuration: config.transitionDuration,
+          tweenPaths: config.tweenPaths,
+          tweenShapes: config.tweenShapes,
+          tweenPrecision: config.tweenPrecision,
+          fontSize: config.fontSize,
+          tabSize: config.tabSize,
+        });
+      });
+    }
+
     const urlParams = qs_parse(window.location.search.slice(1));
     if (urlParams.dot) {
       const currentDotSrc = this.state.dotSrc;
@@ -173,6 +201,12 @@ class Index extends React.Component {
   }
 
   handleTextChange = (text, undoRedoState, forceNewDotSrc) => {
+    // Sync with VSCode
+    const vscodeAdapter = this.props.vscodeAdapter;
+    if (vscodeAdapter && vscodeAdapter.isVSCode()) {
+      vscodeAdapter.updateDocument(text);
+    }
+
     this.setPersistentState((state) => {
       const newState = {
         name: state.name || (text ? this.createUntitledName(state.projects) : ''),

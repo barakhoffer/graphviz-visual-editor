@@ -1,0 +1,21 @@
+strict digraph {
+    rankdir=LR;
+    node [shape=box, style=filled];
+    
+    // Define nodes
+    Start [fillcolor="#90EE90", label="Start"];
+    Process1 [fillcolor="#87CEEB", label="Process Data"];
+    Decision [shape=diamond, fillcolor="#FFD700", label="Valid?"];
+    Process2 [fillcolor="#87CEEB", label="Transform"];
+    End [fillcolor="#FFB6C1", label="End"];
+    Error [fillcolor="#FF6B6B", label="Error Handler"];
+    
+    // Define edges
+    Start -> Process1 [label="input"];
+    Process1 -> Decision;
+    Decision -> Process2 [label="yes"];
+    Decision -> Error [label="no", color=red];
+    Process2 -> End;
+    Error -> End [style=dashed];
+}
+

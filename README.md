@@ -4,10 +4,16 @@ Try it at http://magjac.com/graphviz-visual-editor.
 
 A web application for interactive visual editing of [Graphviz](http://www.graphviz.org) graphs described in the [DOT](https://www.graphviz.org/doc/info/lang.html) language.
 
+**Now available as a VSCode extension!** See [VSCode Extension Guide](VSCODE_EXTENSION.md) for details.
+
 [![CircleCI](https://circleci.com/gh/magjac/graphviz-visual-editor.svg?style=svg)](https://circleci.com/gh/magjac/graphviz-visual-editor)
 [![codecov](https://codecov.io/gh/magjac/graphviz-visual-editor/branch/master/graph/badge.svg)](https://codecov.io/gh/magjac/graphviz-visual-editor)
 
 ## Installation ##
+
+### Web Application
+
+Run the application in your browser:
 
 ```
 git clone https://github.com/magjac/graphviz-visual-editor
@@ -26,6 +32,23 @@ npm run build
 ```
 
 Learn more from the Create React App [README](https://github.com/facebook/create-react-app#npm-run-build-or-yarn-build) and [User Guide](https://github.com/facebook/create-react-app/blob/master/packages/react-scripts/template/README.md#deployment).
+
+### VSCode Extension
+
+Use the editor directly in VSCode for `.dot` and `.gv` files:
+
+```bash
+# Build the extension
+./build-vscode-extension.sh
+
+# Install in VSCode
+# 1. Open VSCode
+# 2. Go to Extensions (Ctrl+Shift+X)
+# 3. Click "..." menu → "Install from VSIX..."
+# 4. Select the .vsix file from vscode-extension/
+```
+
+See the complete [VSCode Extension Guide](VSCODE_EXTENSION.md) for detailed instructions.
 
 ## Implemented Features ##
 

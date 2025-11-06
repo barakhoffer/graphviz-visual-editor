@@ -62,6 +62,7 @@ See the complete [VSCode Extension Guide](VSCODE_EXTENSION.md) for detailed inst
   * Select nodes and edges by click or by area drag and mark them in the text editor.
   * Delete selected nodes and edges.
   * Cut/Copy-and-paste a selected node.
+  * Toggle same rank constraint for 2 selected nodes (press `r` to align horizontally).
 * Automatic update of the DOT source when the graph is visually edited.
 * Automatic update of the graph when the DOT source is edited.
 * Animated transition of the graph into a new state when changes are made.

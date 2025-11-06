@@ -316,10 +316,11 @@ class Graph extends React.Component {
     this.svg.on("mousemove", this.handleMouseMoveSvg.bind(this));
     this.svg.on("click", this.handleClickSvg.bind(this));
     this.svg.on("mouseup", this.handleMouseUpSvg.bind(this));
-    nodes.on("click mousedown", this.handleClickNode.bind(this));
+    nodes.on("click", this.handleClickNode.bind(this));
+    nodes.on("mousedown", this.handleMouseDownNode.bind(this));
     nodes.on("dblclick", this.handleDblClickNode.bind(this));
     nodes.on("contextmenu", this.handleRightClickNode.bind(this));
-    edges.on("click mousedown", this.handleClickEdge.bind(this));
+    edges.on("click", this.handleClickEdge.bind(this));
 
   }
 
@@ -385,6 +386,9 @@ class Graph extends React.Component {
     else if (event.key === 'f') {
       this.props.onToggleFullscreen();
     }
+    else if (event.key === 'r') {
+      this.toggleSameRank();
+    }
     else {
       return;
     }
@@ -421,6 +425,12 @@ class Graph extends React.Component {
       let extendSelection = event.ctrlKey || event.shiftKey;
       this.selectComponents(d3_select(event.currentTarget), extendSelection);
     }
+  }
+
+  handleMouseDownNode(event) {
+    // Prevent the SVG's mousedown handler from creating an area selection rectangle
+    event.preventDefault();
+    event.stopPropagation();
   }
 
   handleDblClickNode(event) {
@@ -580,12 +590,47 @@ class Graph extends React.Component {
 
   selectComponents(components, extendSelection=false) {
     if (extendSelection) {
-      this.selectedComponents = d3_selectAll(this.selectedComponents.nodes().concat(components.nodes()));
+      // Get current selected node elements
+      const currentNodes = this.selectedComponents.nodes();
+      const newNodes = components.nodes();
+      
+      // Check if we're clicking on an already selected component (toggle off)
+      const nodesToRemove = newNodes.filter(newNode => 
+        currentNodes.some(currentNode => currentNode === newNode)
+      );
+      
+      if (nodesToRemove.length > 0) {
+        // Toggle off: remove the clicked component from selection
+        const remainingNodes = currentNodes.filter(node => 
+          !nodesToRemove.includes(node)
+        );
+        this.selectedComponents = d3_selectAll(remainingNodes);
+        
+        // Remove the selection rectangles for removed nodes
+        const self = this;
+        nodesToRemove.forEach(node => {
+          d3_select(node).selectAll('rect[stroke="black"]').remove();
+        });
+        
+        // Update selectNames
+        this.selectNames = remainingNodes.map(node => 
+          d3_select(node).selectWithoutDataPropagation("title").text()
+        );
+      } else {
+        // Toggle on: add new components (remove duplicates)
+        const allNodes = currentNodes.concat(newNodes);
+        const uniqueNodes = allNodes.filter((node, index) => 
+          allNodes.indexOf(node) === index
+        );
+        this.selectedComponents = d3_selectAll(uniqueNodes);
+        this.markSelectedComponents(components, true);
+      }
     } else {
       this.unSelectComponents();
       this.selectedComponents = components;
+      this.markSelectedComponents(components, false);
     }
-    this.markSelectedComponents(components, extendSelection);
+    
     const selectedComponents = this.selectNames.map((name) => this.dotGraph.components[name]);
     this.props.onSelect(selectedComponents);
   }
@@ -657,6 +702,84 @@ class Graph extends React.Component {
     });
     this.props.onTextChange(this.dotGraph.dotSrc);
     this.unSelectComponents();
+  }
+
+  toggleSameRank() {
+    // Count nodes and edges separately
+    const allNodes = this.selectedComponents.filter('.node');
+    
+    // Get the node names
+    const nodeNames = [];
+    allNodes.each(function() {
+      const nodeName = d3_select(this).selectWithoutDataPropagation("title").text();
+      nodeNames.push(nodeName);
+    });
+    
+    // Check if at least 2 nodes are selected
+    if (allNodes.size() < 2) {
+      return; // Do nothing if less than 2 nodes
+    }
+
+    // Toggle the rank constraint in the DOT source
+    let dotSrc = this.dotGraph.dotSrc;
+    
+    // Build the rank constraint string with all selected nodes
+    const nodesString = nodeNames.join('; ');
+    
+    // Escape special regex characters in node names
+    const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    
+    // Try to find an existing rank constraint containing ALL these nodes
+    // This is complex, so let's use a simpler approach: look for any rank constraint with these exact nodes
+    const escapedNames = nodeNames.map(escapeRegex);
+    
+    // Create a pattern that matches rank=same with exactly these nodes in any order
+    // For simplicity, we'll just check if a rank constraint exists with all node names
+    let foundExisting = false;
+    const rankRegex = /\{\s*rank\s*=\s*same\s*;([^}]+)\}/g;
+    let match;
+    let matchToRemove = null;
+    
+    while ((match = rankRegex.exec(dotSrc)) !== null) {
+      const constraintContent = match[1];
+      // Extract node names from the constraint (split by semicolon)
+      const constraintNodes = constraintContent.split(';').map(n => n.trim()).filter(n => n);
+      
+      // Check if this constraint contains exactly our selected nodes
+      if (constraintNodes.length === nodeNames.length &&
+          constraintNodes.every(n => nodeNames.includes(n)) &&
+          nodeNames.every(n => constraintNodes.includes(n))) {
+        foundExisting = true;
+        matchToRemove = match[0];
+        break;
+      }
+    }
+    
+    if (foundExisting && matchToRemove) {
+      // Remove the rank constraint
+      dotSrc = dotSrc.replace(matchToRemove, '');
+    } else {
+      // Add the rank constraint
+      
+      // Find a good place to insert it (after the opening brace of the graph)
+      // Match: (strict )?(di)?graph (name)? {
+      const graphMatch = dotSrc.match(/((?:strict\s+)?(?:di)?graph(?:\s+\w+)?\s*\{)/i);
+      if (graphMatch) {
+        const insertPos = graphMatch.index + graphMatch[0].length;
+        const rankConstraint = `\n    { rank=same; ${nodesString}; }`;
+        dotSrc = dotSrc.slice(0, insertPos) + rankConstraint + dotSrc.slice(insertPos);
+      } else {
+        console.error('Could not find graph declaration to insert rank constraint');
+        return;
+      }
+    }
+
+    // Clean up any double blank lines
+    dotSrc = dotSrc.replace(/\n\n\n+/g, '\n\n');
+    
+    // Update the DOT source
+    this.dotGraph.dotSrc = dotSrc;
+    this.props.onTextChange(dotSrc);
   }
 
   getNextNodeId() {

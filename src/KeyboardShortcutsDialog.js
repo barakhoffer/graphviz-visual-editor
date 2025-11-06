@@ -24,6 +24,7 @@ const keyboardShortcuts = [
   {key: 'DEL', description: 'Delete the selected nodes and edges.'},
   {key: 'ESC', description: 'De-select the selected nodes and edges. Abort the current drawing operation.'},
   {key: 'f', description: 'Toggle fullscreen graph mode.'},
+  {key: 'r', description: 'Toggle same rank constraint for 2 or more selected nodes (place them horizontally aligned).'},
   {key: '?', description: 'Show keyboard shortcuts.'},
 ];
 

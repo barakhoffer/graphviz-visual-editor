@@ -79,6 +79,11 @@ class Graph extends React.Component {
     this.prevEngine = null;
     this.prevDotSrc = '';
     this.prevFullscreen = false;
+    this.edgeClickTimer = null;
+    this.edgeClickTarget = null;
+    this.nodeClickTimer = null;
+    this.nodeClickTarget = null;
+    this.nodeClickCtrlKey = false;
   }
 
   componentDidMount() {
@@ -318,9 +323,25 @@ class Graph extends React.Component {
     this.svg.on("mouseup", this.handleMouseUpSvg.bind(this));
     nodes.on("click", this.handleClickNode.bind(this));
     nodes.on("mousedown", this.handleMouseDownNode.bind(this));
-    nodes.on("dblclick", this.handleDblClickNode.bind(this));
+    // Keep native dblclick for edge drawing (needs immediate response)
+    nodes.on("dblclick", (event) => {
+      if (this.isDrawingEdge) {
+        event.preventDefault();
+        event.stopPropagation();
+        // Clear any pending click timers
+        if (this.nodeClickTimer) {
+          clearTimeout(this.nodeClickTimer);
+          this.nodeClickTimer = null;
+          this.nodeClickTarget = null;
+          this.nodeClickCtrlKey = false;
+        }
+        this.handleDblClickNode(event);
+      }
+      // When not drawing edge, let manual detection handle it (ignore native dblclick)
+    });
     nodes.on("contextmenu", this.handleRightClickNode.bind(this));
     edges.on("click", this.handleClickEdge.bind(this));
+    edges.on("mousedown", this.handleMouseDownEdge.bind(this));
 
   }
 
@@ -421,9 +442,41 @@ class Graph extends React.Component {
     document.activeElement.blur();
     event.preventDefault();
     event.stopPropagation();
+    
     if (!this.isDrawingEdge && event.which === 1) {
-      let extendSelection = event.ctrlKey || event.shiftKey;
-      this.selectComponents(d3_select(event.currentTarget), extendSelection);
+      const currentTarget = event.currentTarget;
+      const clickDelay = 300; // milliseconds to wait for second click
+      
+      // Check if this is a double-click (second click on same node within delay)
+      if (this.nodeClickTimer && this.nodeClickTarget === currentTarget) {
+        // This is a double-click!
+        clearTimeout(this.nodeClickTimer);
+        const savedCtrlKey = this.nodeClickCtrlKey;
+        this.nodeClickTimer = null;
+        this.nodeClickTarget = null;
+        this.nodeClickCtrlKey = false;
+        
+        // Call the double-click handler with the saved Ctrl key state
+        this.handleDblClickNode(event, savedCtrlKey);
+        return;
+      }
+      
+      // This is a single click - set timer to detect if double-click follows
+      // Save event properties before timeout (event object becomes invalid)
+      const extendSelection = event.ctrlKey || event.shiftKey;
+      const ctrlKey = event.ctrlKey;
+      
+      this.nodeClickTarget = currentTarget;
+      this.nodeClickCtrlKey = ctrlKey; // Save Ctrl key state for potential double-click
+      this.nodeClickTimer = setTimeout(() => {
+        // Timer expired, this was just a single click
+        this.nodeClickTimer = null;
+        this.nodeClickTarget = null;
+        this.nodeClickCtrlKey = false;
+        
+        // Perform single-click action (selection)
+        this.selectComponents(d3_select(currentTarget), extendSelection);
+      }, clickDelay);
     }
   }
 
@@ -433,13 +486,18 @@ class Graph extends React.Component {
     event.stopPropagation();
   }
 
-  handleDblClickNode(event) {
+  handleDblClickNode(event, savedCtrlKey = false) {
     this.props.onFocus();
     document.activeElement.blur();
     event.preventDefault();
     event.stopPropagation();
     this.unSelectComponents();
+    
+    // Use saved Ctrl key state if provided, otherwise check event
+    const ctrlKey = savedCtrlKey !== undefined ? savedCtrlKey : event.ctrlKey;
+    
     if (this.isDrawingEdge) {
+      // Complete edge drawing
       var endNode = d3_select(event.currentTarget);
       var startNodeName = this.startNode.selectWithoutDataPropagation("title").text();
       var endNodeName = endNode.selectWithoutDataPropagation("title").text();
@@ -449,8 +507,52 @@ class Graph extends React.Component {
       this.latestEdgeAttributes = Object.assign({}, this.props.defaultEdgeAttributes);
       this.dotGraph.insertEdge(startNodeName, endNodeName, edgeop, this.latestEdgeAttributes);
       this.props.onTextChange(this.dotGraph.dotSrc);
+      this.isDrawingEdge = false;
+    } else if (ctrlKey) {
+      // Edit node label (Ctrl + double-click)
+      var node = d3_select(event.currentTarget);
+      var nodeName = node.selectWithoutDataPropagation("title").text();
+      
+      // Get current label value if it exists
+      const attributes = this.dotGraph.getNodeAttributes(nodeName);
+      const currentLabel = attributes && attributes.label ? attributes.label : nodeName;
+      
+      // Prompt user for new label value
+      const newLabel = prompt('Enter node label:', currentLabel);
+      
+      // If user cancelled, return
+      if (newLabel === null) {
+        return;
+      }
+      
+      // Update the node label attribute
+      const success = this.dotGraph.updateNodeAttribute(nodeName, 'label', newLabel);
+      
+      if (success) {
+        // Update the DOT source and trigger re-render
+        this.props.onTextChange(this.dotGraph.dotSrc);
+      }
+    } else {
+      // Rename node (normal double-click)
+      var node = d3_select(event.currentTarget);
+      var oldNodeName = node.selectWithoutDataPropagation("title").text();
+      
+      // Prompt user for new node name
+      const newNodeName = prompt('Enter new node name:', oldNodeName);
+      
+      // If user cancelled or didn't change anything, return
+      if (newNodeName === null) {
+        return;
+      }
+      
+      // Rename the node
+      const success = this.dotGraph.renameNode(oldNodeName, newNodeName);
+      
+      if (success) {
+        // Update the DOT source and trigger re-render
+        this.props.onTextChange(this.dotGraph.dotSrc);
+      }
     }
-    this.isDrawingEdge = false;
   }
 
   handleRightClickNode(event) {
@@ -480,8 +582,70 @@ class Graph extends React.Component {
     document.activeElement.blur();
     event.preventDefault();
     event.stopPropagation();
-    let extendSelection = event.ctrlKey || event.shiftKey;
-    this.selectComponents(d3_select(event.currentTarget), extendSelection);
+    
+    const currentTarget = event.currentTarget;
+    const clickDelay = 300; // milliseconds to wait for second click
+    
+      // Check if this is a double-click (second click on same edge within delay)
+      if (this.edgeClickTimer && this.edgeClickTarget === currentTarget) {
+        // This is a double-click!
+        clearTimeout(this.edgeClickTimer);
+      this.edgeClickTimer = null;
+      this.edgeClickTarget = null;
+      
+      // Call the double-click handler
+      this.handleDblClickEdge(event);
+      return;
+    }
+    
+    // This is a single click - set timer to detect if double-click follows
+    // Save event properties before timeout (event object becomes invalid)
+    const extendSelection = event.ctrlKey || event.shiftKey;
+    
+    this.edgeClickTarget = currentTarget;
+      this.edgeClickTimer = setTimeout(() => {
+        // Timer expired, this was just a single click
+        this.edgeClickTimer = null;
+      this.edgeClickTarget = null;
+      
+      // Perform single-click action (selection)
+      this.selectComponents(d3_select(currentTarget), extendSelection);
+    }, clickDelay);
+  }
+
+  handleMouseDownEdge(event) {
+    // Prevent the SVG's mousedown handler from creating an area selection rectangle
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  handleDblClickEdge(event) {
+    this.props.onFocus();
+    document.activeElement.blur();
+    event.preventDefault();
+    event.stopPropagation();
+    
+    // Get the edge name from the title element
+    const edge = d3_select(event.currentTarget);
+    const edgeName = edge.selectWithoutDataPropagation("title").text();
+    
+    // Get current xlabel value if it exists
+    const attributes = this.dotGraph.getEdgeAttributes(edgeName);
+    const currentXlabel = attributes && attributes.xlabel ? attributes.xlabel : '';
+    
+    // Prompt user for new xlabel value
+    const newXlabel = prompt('Enter edge xlabel (external label):', currentXlabel);
+    
+    // If user cancelled or didn't change anything, return
+    if (newXlabel === null) {
+      return;
+    }
+    
+    // Update the edge xlabel attribute
+    this.dotGraph.updateEdgeAttribute(edgeName, 'xlabel', newXlabel);
+    
+    // Update the DOT source and trigger re-render
+    this.props.onTextChange(this.dotGraph.dotSrc);
   }
 
   handleRightClickDiv(event) {
@@ -769,7 +933,6 @@ class Graph extends React.Component {
         const rankConstraint = `\n    { rank=same; ${nodesString}; }`;
         dotSrc = dotSrc.slice(0, insertPos) + rankConstraint + dotSrc.slice(insertPos);
       } else {
-        console.error('Could not find graph declaration to insert rank constraint');
         return;
       }
     }

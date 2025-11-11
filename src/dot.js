@@ -55,6 +55,232 @@ export default class DotGraph {
     }
   }
 
+  updateNodeAttribute(nodeName, attributeName, attributeValue) {
+    // Check if node exists
+    if (!this.nodes[nodeName]) {
+      return false;
+    }
+    
+    // Find the node declaration in the DOT source and update it
+    // We need to find the actual node statement, not just any occurrence of the name
+    const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const nodeNamePattern = escapeRegex(nodeName);
+    
+    // Pattern to match a node statement (not in an edge)
+    // Matches: nodeName [attrs] followed by ; or newline or end of string
+    // We want to avoid matching node names in edge statements like "A -> B"
+    const nodePattern = new RegExp(
+      `(^|[\\s;{])(${nodeNamePattern})\\s*(\\[[^\\]]*\\])?\\s*([;\\n]|$)`,
+      'gm'
+    );
+    
+    // Try to find all matches and use the one that's actually a node statement
+    let match = null;
+    let allMatches = [];
+    let tempMatch;
+    
+    // Reset regex lastIndex to search from beginning
+    nodePattern.lastIndex = 0;
+    while ((tempMatch = nodePattern.exec(this.dotSrc)) !== null) {
+      allMatches.push(tempMatch);
+      // Check if this match is NOT part of an edge statement
+      // An edge statement would have -> or -- after the node name
+      const afterMatch = this.dotSrc.substring(tempMatch.index + tempMatch[0].length);
+      const isEdgeStatement = /^\s*(->|--)/.test(afterMatch);
+      if (!isEdgeStatement) {
+        match = tempMatch;
+        break; // Found a node statement, use it
+      }
+    }
+    
+    // If no node statement found, try the first match anyway
+    if (!match && allMatches.length > 0) {
+      match = allMatches[0];
+    }
+    
+    if (!match) {
+      return false;
+    }
+    
+    const fullMatch = match[0];
+    const matchStart = match.index;
+    const matchEnd = matchStart + fullMatch.length;
+    const prefix = match[1]; // The whitespace/separator before the node
+    const existingAttrs = match[3]; // The [attrs] part if it exists
+    const suffix = match[4]; // The ; or newline after
+    
+    // Parse existing attributes if present
+    const attributes = {};
+    if (existingAttrs) {
+      const attrContent = existingAttrs.substring(1, existingAttrs.length - 1); // Remove [ ]
+      // Improved regex to handle:
+      // - Quoted values: key="value"
+      // - Unquoted values: key=value
+      // - Values with spaces: key="value with spaces"
+      const attrRegex = /(\w+)\s*=\s*"([^"]*)"|(\w+)\s*=\s*([^\s,\]]+)/g;
+      let attrMatch;
+      while ((attrMatch = attrRegex.exec(attrContent)) !== null) {
+        const key = attrMatch[1] || attrMatch[3];
+        let value = attrMatch[2] || attrMatch[4];
+        // Remove quotes if present (we'll add them back when needed)
+        if (value && value.startsWith('"') && value.endsWith('"')) {
+          value = value.substring(1, value.length - 1);
+        }
+        if (key && key !== attributeName) {
+          attributes[key] = value;
+        }
+      }
+    }
+    
+    // Add/update the new attribute
+    if (attributeValue !== null && attributeValue !== '') {
+      attributes[attributeName] = attributeValue;
+    }
+    
+    // Build the new node statement
+    let newNode = prefix + nodeName;
+    
+    const attrKeys = Object.keys(attributes);
+    if (attrKeys.length > 0) {
+      const attrString = attrKeys
+        .map(key => `${key}=${quoteIdIfNecessary(attributes[key])}`)
+        .join(' ');
+      newNode += ` [${attrString}]`;
+    }
+    
+    // Add back the suffix (semicolon or newline)
+    newNode += suffix || '';
+    
+    // Replace the node in the DOT source
+    this.dotSrc = this.dotSrc.substring(0, matchStart) + 
+                  newNode + 
+                  this.dotSrc.substring(matchEnd);
+
+    // Reparse to update internal state
+    this.reparse();
+    return true;
+  }
+
+  renameNode(oldName, newName) {
+    // Check if old node exists
+    if (!this.nodes[oldName]) {
+      return false;
+    }
+    
+    // Check if new name is valid and different
+    if (!newName || newName.trim() === '') {
+      return false;
+    }
+    
+    newName = newName.trim();
+    
+    if (oldName === newName) {
+      return true; // No change needed
+    }
+    
+    // Check if new name already exists
+    if (this.nodes[newName]) {
+      alert(`A node named "${newName}" already exists. Please choose a different name.`);
+      return false;
+    }
+    
+    // Use regex to replace all occurrences of the node name
+    // Need to match node names in various contexts:
+    // - Node declarations: nodeName [attrs]
+    // - Edge statements: node1 -> nodeName or nodeName -> node2
+    const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const oldNamePattern = escapeRegex(oldName);
+    
+    // Match node name as a whole word (not part of another identifier)
+    // This pattern matches the node name when it's:
+    // - At start of line (with optional whitespace)
+    // - After whitespace, edge operator (-> or --), or opening brace
+    // - Before whitespace, edge operator, attributes [, semicolon, or closing brace
+    const nodeNameRegex = new RegExp(
+      `(^|[\\s{]|->|--)(${oldNamePattern})(?=[\\s\\[;:}]|->|--|$)`,
+      'g'
+    );
+    
+    // Replace all occurrences
+    this.dotSrc = this.dotSrc.replace(nodeNameRegex, (match, prefix, nodeName) => {
+      return prefix + newName;
+    });
+    
+    // Reparse to update internal state
+    this.reparse();
+    return true;
+  }
+
+  updateEdgeAttribute(edgeName, attributeName, attributeValue) {
+    
+    // Simple approach: use string replacement on the entire edge statement
+    const edgeop = edgeName.includes('->') ? '->' : '--';
+    const nodeNames = edgeName.split(edgeop).map(n => n.trim());
+    
+    // Build regex patterns to find the edge
+    const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const node1Pattern = escapeRegex(nodeNames[0]);
+    const node2Pattern = escapeRegex(nodeNames[1]);
+    const edgeOpPattern = edgeop === '->' ? '->' : '--';
+    
+    // Pattern to match the edge with optional existing attributes
+    // Captures: (node1) (->|--) (node2) (optional whitespace) (optional [attrs])
+    const edgePattern = new RegExp(
+      `(${node1Pattern})\\s*(${edgeOpPattern})\\s*(${node2Pattern})\\s*(\\[[^\\]]*\\])?`,
+      'g'
+    );
+    
+    const match = edgePattern.exec(this.dotSrc);
+    if (!match) {
+      return false;
+    }
+    
+    const fullMatch = match[0];
+    const matchStart = match.index;
+    const matchEnd = matchStart + fullMatch.length;
+    const existingAttrs = match[4]; // The [attrs] part if it exists
+    
+    // Parse existing attributes if present
+    const attributes = {};
+    if (existingAttrs) {
+      const attrContent = existingAttrs.substring(1, existingAttrs.length - 1); // Remove [ ]
+      const attrRegex = /(\w+)\s*=\s*"([^"]*)"|(\w+)\s*=\s*([^\s,\]]+)/g;
+      let attrMatch;
+      while ((attrMatch = attrRegex.exec(attrContent)) !== null) {
+        const key = attrMatch[1] || attrMatch[3];
+        const value = attrMatch[2] || attrMatch[4];
+        if (key !== attributeName) {
+          attributes[key] = value;
+        }
+      }
+    }
+    
+    // Add/update the new attribute
+    if (attributeValue !== null && attributeValue !== '') {
+      attributes[attributeName] = attributeValue;
+    }
+    
+    // Build the new edge statement
+    let newEdge = `${nodeNames[0]} ${edgeop} ${nodeNames[1]}`;
+    
+    const attrKeys = Object.keys(attributes);
+    if (attrKeys.length > 0) {
+      const attrString = attrKeys
+        .map(key => `${key}=${quoteIdIfNecessary(attributes[key])}`)
+        .join(' ');
+      newEdge += ` [${attrString}]`;
+    }
+    
+    // Replace the edge in the DOT source
+    this.dotSrc = this.dotSrc.substring(0, matchStart) + 
+                  newEdge + 
+                  this.dotSrc.substring(matchEnd);
+
+    // Reparse to update internal state
+    this.reparse();
+    return true;
+  }
+
   parseDot() {
     this.ast = parse(this.dotSrc)[0];
     const children = this.ast.children;
@@ -109,7 +335,21 @@ export default class DotGraph {
       }
       else if (child.type === 'edge_stmt') {
         this.parseChildren(child.edge_list, child);
-        // FIXME: add support for attributes
+        // Parse edge attributes
+        const attributes = child.attr_list.reduce(function(attrs, attr, i) {
+          attrs[attr.id] = attr.eq;
+          return attrs;
+        }, {});
+        // Apply attributes to all edges created by this statement
+        const edgeList = child.edge_list.filter(item => item.type === 'node_id');
+        for (let i = 1; i < edgeList.length; i++) {
+          const nodeIds = [edgeList[i - 1], edgeList[i]];
+          const nodeNames = nodeIds.map((nodeId) => nodeId.id + (nodeId.port ? ':' + nodeId.port.id : ''));
+          const edgeId = nodeNames[0] + this.edgeop + nodeNames[1];
+          if (this.edges[edgeId]) {
+            Object.assign(this.edges[edgeId].attributes, attributes);
+          }
+        }
       }
       else if (child.type === 'subgraph') {
         this.parseChildren(child.children, child);

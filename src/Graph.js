@@ -14,6 +14,7 @@ import { zoomTransform as d3_zoomTransform} from 'd3-zoom';
 import { pointer as d3_pointer} from 'd3-selection';
 import 'd3-graphviz';
 import DotGraph from './dot.js'
+import TextInputDialog from './TextInputDialog.js';
 
 const styles = {
   root: {
@@ -53,6 +54,7 @@ class Graph extends React.Component {
     super(props);
     this.state = {
       busy: false,
+      textInputDialog: null, // { title, label, initialValue, onSubmit, onClose }
     };
     this.svg = d3_select(null);
     this.createGraph = this.createGraph.bind(this)
@@ -517,41 +519,55 @@ class Graph extends React.Component {
       const attributes = this.dotGraph.getNodeAttributes(nodeName);
       const currentLabel = attributes && attributes.label ? attributes.label : nodeName;
       
-      // Prompt user for new label value
-      const newLabel = prompt('Enter node label:', currentLabel);
-      
-      // If user cancelled, return
-      if (newLabel === null) {
-        return;
-      }
-      
-      // Update the node label attribute
-      const success = this.dotGraph.updateNodeAttribute(nodeName, 'label', newLabel);
-      
-      if (success) {
-        // Update the DOT source and trigger re-render
-        this.props.onTextChange(this.dotGraph.dotSrc);
-      }
+      // Show dialog for label input
+      this.setState({
+        textInputDialog: {
+          title: 'Edit Node Label',
+          label: 'Node Label',
+          initialValue: currentLabel,
+          onSubmit: (newLabel) => {
+            this.setState({ textInputDialog: null });
+            if (newLabel !== null && newLabel !== '') {
+              // Update the node label attribute
+              const success = this.dotGraph.updateNodeAttribute(nodeName, 'label', newLabel);
+              if (success) {
+                // Update the DOT source and trigger re-render
+                this.props.onTextChange(this.dotGraph.dotSrc);
+              }
+            }
+          },
+          onClose: () => {
+            this.setState({ textInputDialog: null });
+          },
+        },
+      });
     } else {
       // Rename node (normal double-click)
       var node = d3_select(event.currentTarget);
       var oldNodeName = node.selectWithoutDataPropagation("title").text();
       
-      // Prompt user for new node name
-      const newNodeName = prompt('Enter new node name:', oldNodeName);
-      
-      // If user cancelled or didn't change anything, return
-      if (newNodeName === null) {
-        return;
-      }
-      
-      // Rename the node
-      const success = this.dotGraph.renameNode(oldNodeName, newNodeName);
-      
-      if (success) {
-        // Update the DOT source and trigger re-render
-        this.props.onTextChange(this.dotGraph.dotSrc);
-      }
+      // Show dialog for node name input
+      this.setState({
+        textInputDialog: {
+          title: 'Rename Node',
+          label: 'Node Name',
+          initialValue: oldNodeName,
+          onSubmit: (newNodeName) => {
+            this.setState({ textInputDialog: null });
+            if (newNodeName !== null && newNodeName !== '') {
+              // Rename the node
+              const success = this.dotGraph.renameNode(oldNodeName, newNodeName);
+              if (success) {
+                // Update the DOT source and trigger re-render
+                this.props.onTextChange(this.dotGraph.dotSrc);
+              }
+            }
+          },
+          onClose: () => {
+            this.setState({ textInputDialog: null });
+          },
+        },
+      });
     }
   }
 
@@ -633,19 +649,24 @@ class Graph extends React.Component {
     const attributes = this.dotGraph.getEdgeAttributes(edgeName);
     const currentXlabel = attributes && attributes.xlabel ? attributes.xlabel : '';
     
-    // Prompt user for new xlabel value
-    const newXlabel = prompt('Enter edge xlabel (external label):', currentXlabel);
-    
-    // If user cancelled or didn't change anything, return
-    if (newXlabel === null) {
-      return;
-    }
-    
-    // Update the edge xlabel attribute
-    this.dotGraph.updateEdgeAttribute(edgeName, 'xlabel', newXlabel);
-    
-    // Update the DOT source and trigger re-render
-    this.props.onTextChange(this.dotGraph.dotSrc);
+    // Show dialog for xlabel input
+    this.setState({
+      textInputDialog: {
+        title: 'Edit Edge XLabel',
+        label: 'Edge XLabel (External Label)',
+        initialValue: currentXlabel,
+        onSubmit: (newXlabel) => {
+          this.setState({ textInputDialog: null });
+          // Update the edge xlabel attribute (empty string removes it)
+          this.dotGraph.updateEdgeAttribute(edgeName, 'xlabel', newXlabel);
+          // Update the DOT source and trigger re-render
+          this.props.onTextChange(this.dotGraph.dotSrc);
+        },
+        onClose: () => {
+          this.setState({ textInputDialog: null });
+        },
+      },
+    });
   }
 
   handleRightClickDiv(event) {
@@ -1115,6 +1136,15 @@ class Graph extends React.Component {
               <OpenInFullIcon />
             }
         </IconButton>
+        {this.state.textInputDialog && (
+          <TextInputDialog
+            title={this.state.textInputDialog.title}
+            label={this.state.textInputDialog.label}
+            initialValue={this.state.textInputDialog.initialValue}
+            onSubmit={this.state.textInputDialog.onSubmit}
+            onClose={this.state.textInputDialog.onClose}
+          />
+        )}
       </React.Fragment>
     );
   }
